@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'models.dart';
 import 'services.dart';
 import 'furnace_dies_screen.dart';
+import 'app_localization.dart';
 
 class FurnaceScreen extends StatefulWidget {
   const FurnaceScreen({super.key});
@@ -64,7 +65,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       Fluttertoast.showToast(
-        msg: 'خطأ في تحميل البيانات: $e',
+        msg: AppStrings.trStaticP('load_data_error', {'e': e.toString()}),
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
@@ -83,13 +84,6 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     return false;
   }
 
-  // ✅ إضافة فرن جديد (نشط تلقائياً)
-  // ✅ تحديث "مضمون" للأفران بعد أي عملية عليها (إضافة/تشغيل/إيقاف/حذف/تحديث حرارة)
-  // بيعمل تحميل كامل عادي، وبعدين تحديث مباشر للأفران وحدها من قاعدة البيانات،
-  // عشان لو أي جزء تاني في التحميل الكامل (مستخدمين/ورديات/قوالب) فشل بصمت،
-  // الأفران المعروضة تفضل مطابقة لقاعدة البيانات فعلياً ومتختفيش.
-  // [optimistic] هو آخر نسخة معروفة للفرن اللي عملنا عليها save بنجاح؛ لو قراءة السيرفر
-  // (لأي تأخير في الشبكة) لسه ما استلمتهاش، بنفضل نعرضها بدل ما تختفي من الشاشة.
   Future<void> _reloadAfterFurnaceAction({FurnaceModel? optimistic}) async {
     if (optimistic != null) {
       setState(() {
@@ -107,7 +101,6 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
       if (mounted) {
         setState(() {
           if (optimistic != null && !freshFurnaces.any((f) => f.id == optimistic.id)) {
-            // السيرفر لسه ما رجّعش آخر نسخة (تأخير شبكة بسيط) - منسيبش الفرن يختفي
             _furnaces = [...freshFurnaces, optimistic];
           } else {
             _furnaces = freshFurnaces;
@@ -115,7 +108,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
         });
       }
     } catch (e) {
-      print('⚠️ خطأ في التحديث المباشر للأفران: $e');
+      print(AppStrings.trStaticP('live_update_error', {'e': e.toString()}));
     }
   }
 
@@ -127,7 +120,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
     if (name.isEmpty) {
       setState(() {
-        _lastMessage = '⚠️ الرجاء إدخال اسم الفرن';
+        _lastMessage = AppStrings.trStatic('furnace_name_required');
         _isMessageSuccess = false;
       });
       return;
@@ -135,7 +128,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
     if (targetTemp == null || targetTemp <= 0) {
       setState(() {
-        _lastMessage = '⚠️ الرجاء إدخال درجة حرارة مستهدفة صحيحة';
+        _lastMessage = AppStrings.trStatic('target_temp_required');
         _isMessageSuccess = false;
       });
       return;
@@ -143,7 +136,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
     if (_selectedPressId == null || _selectedPressId!.isEmpty) {
       setState(() {
-        _lastMessage = '⚠️ الرجاء اختيار المكبس المرتبط بالفرن';
+        _lastMessage = AppStrings.trStatic('press_required');
         _isMessageSuccess = false;
       });
       return;
@@ -151,7 +144,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
     if (!_canManagePress(_selectedPressId!)) {
       setState(() {
-        _lastMessage = '⚠️ ليس لديك صلاحية لإدارة هذا المكبس';
+        _lastMessage = AppStrings.trStatic('no_permission_furnace');
         _isMessageSuccess = false;
       });
       return;
@@ -166,7 +159,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
     if (press == null) {
       setState(() {
-        _lastMessage = '⚠️ المكبس غير موجود';
+        _lastMessage = AppStrings.trStatic('press_not_found');
         _isMessageSuccess = false;
       });
       return;
@@ -181,7 +174,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
     if (existingFurnace != null) {
       setState(() {
-        _lastMessage = '⚠️ يوجد فرن بالفعل للمكبس ${press!.name} (${existingFurnace!.name})';
+        _lastMessage = AppStrings.trStaticP('furnace_exists', {'press': press!.name, 'name': existingFurnace!.name});
         _isMessageSuccess = false;
       });
       return;
@@ -199,7 +192,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
         solidHeatingTime: solidTime,
         pressId: press!.id,
         pressName: press!.name,
-        isActive: true, // ✅ الفرن نشط افتراضياً
+        isActive: true,
       );
 
       await _provider.service.saveFurnace(_provider.currentFactoryId, newFurnace);
@@ -213,22 +206,22 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
       await _reloadAfterFurnaceAction(optimistic: newFurnace);
 
       setState(() {
-        _lastMessage = '✅ تم إضافة الفرن: $name (للمكبس: ${press!.name}) - الحالة: نشط';
+        _lastMessage = AppStrings.trStaticP('furnace_added', {'name': name, 'press': press!.name});
         _isMessageSuccess = true;
       });
 
       Fluttertoast.showToast(
-        msg: '✅ تم إضافة الفرن: $name (للمكبس: ${press!.name})',
+        msg: AppStrings.trStaticP('furnace_added', {'name': name, 'press': press!.name}),
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
     } catch (e) {
       setState(() {
-        _lastMessage = '❌ خطأ: $e';
+        _lastMessage = AppStrings.trStaticP('error_prefix', {'e': e.toString()});
         _isMessageSuccess = false;
       });
       Fluttertoast.showToast(
-        msg: '❌ خطأ: $e',
+        msg: AppStrings.trStaticP('error_prefix', {'e': e.toString()}),
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
@@ -239,7 +232,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     final startTemp = double.tryParse(_startTempController.text);
     if (startTemp == null || startTemp <= 0) {
       setState(() {
-        _lastMessage = '⚠️ الرجاء إدخال درجة حرارة البداية';
+        _lastMessage = AppStrings.trStatic('start_temp_required');
         _isMessageSuccess = false;
       });
       return;
@@ -259,22 +252,22 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
       await _reloadAfterFurnaceAction(optimistic: updatedFurnace);
 
       setState(() {
-        _lastMessage = '✅ تم تشغيل الفرن ${furnace.name} (دورة تسخين نشطة)';
+        _lastMessage = AppStrings.trStaticP('furnace_started', {'name': furnace.name});
         _isMessageSuccess = true;
       });
 
       Fluttertoast.showToast(
-        msg: '✅ تم تشغيل الفرن ${furnace.name}',
+        msg: AppStrings.trStaticP('furnace_started', {'name': furnace.name}),
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
     } catch (e) {
       setState(() {
-        _lastMessage = '❌ خطأ: $e';
+        _lastMessage = AppStrings.trStaticP('error_prefix', {'e': e.toString()});
         _isMessageSuccess = false;
       });
       Fluttertoast.showToast(
-        msg: '❌ خطأ: $e',
+        msg: AppStrings.trStaticP('error_prefix', {'e': e.toString()}),
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
@@ -285,7 +278,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     final endTemp = double.tryParse(_endTempController.text);
     if (endTemp == null || endTemp <= 0) {
       setState(() {
-        _lastMessage = '⚠️ الرجاء إدخال درجة حرارة النهاية';
+        _lastMessage = AppStrings.trStatic('end_temp_required');
         _isMessageSuccess = false;
       });
       return;
@@ -310,22 +303,22 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
       await _reloadAfterFurnaceAction(optimistic: updatedFurnace);
 
       setState(() {
-        _lastMessage = '✅ تم إيقاف الفرن ${furnace.name} (انتهت دورة التسخين)';
+        _lastMessage = AppStrings.trStaticP('furnace_stopped', {'name': furnace.name});
         _isMessageSuccess = true;
       });
 
       Fluttertoast.showToast(
-        msg: '✅ تم إيقاف الفرن ${furnace.name}',
+        msg: AppStrings.trStaticP('furnace_stopped', {'name': furnace.name}),
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
     } catch (e) {
       setState(() {
-        _lastMessage = '❌ خطأ: $e';
+        _lastMessage = AppStrings.trStaticP('error_prefix', {'e': e.toString()});
         _isMessageSuccess = false;
       });
       Fluttertoast.showToast(
-        msg: '❌ خطأ: $e',
+        msg: AppStrings.trStaticP('error_prefix', {'e': e.toString()}),
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
@@ -335,7 +328,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
   Future<void> _deleteFurnace(FurnaceModel furnace) async {
     if (!_canManagePress(furnace.pressId)) {
       Fluttertoast.showToast(
-        msg: '⚠️ ليس لديك صلاحية لحذف هذا الفرن',
+        msg: AppStrings.trStatic('no_permission_delete_furnace'),
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
@@ -345,12 +338,12 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('⚠️ تأكيد الحذف'),
-        content: Text('هل أنت متأكد من حذف الفرن "${furnace.name}"؟'),
+        title: Text(context.tr('confirm_delete_title')),
+        content: Text(context.trP('delete_furnace_confirm', {'name': furnace.name})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+            child: Text(context.tr('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -359,28 +352,28 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                 await _provider.service.deleteFurnace(_provider.currentFactoryId, furnace.id);
                 await _reloadAfterFurnaceAction();
                 setState(() {
-                  _lastMessage = '✅ تم حذف الفرن: ${furnace.name}';
+                  _lastMessage = AppStrings.trStaticP('furnace_deleted', {'name': furnace.name});
                   _isMessageSuccess = true;
                 });
                 Fluttertoast.showToast(
-                  msg: '✅ تم حذف الفرن: ${furnace.name}',
+                  msg: AppStrings.trStaticP('furnace_deleted', {'name': furnace.name}),
                   backgroundColor: Colors.red,
                   textColor: Colors.white,
                 );
               } catch (e) {
                 setState(() {
-                  _lastMessage = '❌ خطأ: $e';
+                  _lastMessage = AppStrings.trStaticP('error_prefix', {'e': e.toString()});
                   _isMessageSuccess = false;
                 });
                 Fluttertoast.showToast(
-                  msg: '❌ خطأ: $e',
+                  msg: AppStrings.trStaticP('error_prefix', {'e': e.toString()}),
                   backgroundColor: Colors.red,
                   textColor: Colors.white,
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('حذف', style: TextStyle(color: Colors.white)),
+            child: Text(context.tr('delete_word'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -395,26 +388,26 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('🔥 تشغيل الفرن - ${furnace.name}'),
+        title: Text(context.trP('start_furnace_dialog', {'name': furnace.name})),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('أدخل درجة حرارة البداية:'),
+            Text(context.tr('enter_start_temp')),
             const SizedBox(height: 8),
             TextFormField(
               controller: _startTempController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '🌡️ درجة الحرارة (°C)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.tr('start_temp_label'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _cycleNotesController,
-              decoration: const InputDecoration(
-                labelText: '📝 ملاحظات (اختياري)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.tr('notes_optional_label'),
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -423,7 +416,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+            child: Text(context.tr('cancel')),
           ),
           ElevatedButton(
             onPressed: () {
@@ -434,7 +427,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
             ),
-            child: const Text('▶️ تشغيل'),
+            child: Text(context.tr('start_furnace_btn')),
           ),
         ],
       ),
@@ -451,18 +444,18 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('⏹️ إيقاف الفرن - ${furnace.name}'),
+        title: Text(context.trP('stop_furnace_dialog', {'name': furnace.name})),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('أدخل بيانات نهاية الدورة:'),
+            Text(context.tr('cycle_end_data')),
             const SizedBox(height: 8),
             TextFormField(
               controller: _endTempController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '🌡️ درجة الحرارة النهائية (°C)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.tr('end_temp_label'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),
@@ -472,9 +465,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                   child: TextFormField(
                     controller: _maxTempController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '📈 أعلى درجة',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.tr('max_temp_label'),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                   ),
@@ -484,9 +477,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                   child: TextFormField(
                     controller: _minTempController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '📉 أدنى درجة',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.tr('min_temp_label'),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                   ),
@@ -496,9 +489,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _cycleNotesController,
-              decoration: const InputDecoration(
-                labelText: '📝 ملاحظات (اختياري)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.tr('notes_optional_label'),
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -507,7 +500,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+            child: Text(context.tr('cancel')),
           ),
           ElevatedButton(
             onPressed: () {
@@ -518,14 +511,13 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('⏹️ إيقاف'),
+            child: Text(context.tr('stop_furnace_btn')),
           ),
         ],
       ),
     );
   }
 
-  // ✅ تحديث الحرارة الحالية للفرن أثناء التسخين/التثبيت
   final TextEditingController _updateTempController = TextEditingController();
 
   void _showUpdateTemperatureDialog(FurnaceModel furnace) {
@@ -536,19 +528,19 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('🌡️ تحديث الحرارة - ${furnace.name}'),
+        title: Text(context.trP('update_temp_dialog', {'name': furnace.name})),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('الحرارة المستهدفة: ${furnace.targetTemperature}°C'),
+            Text(context.trP('target_temp_now', {'v': '${furnace.targetTemperature}'})),
             const SizedBox(height: 8),
             TextFormField(
               controller: _updateTempController,
               keyboardType: TextInputType.number,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: '🌡️ الحرارة الحالية الآن (°C)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.tr('current_temp_now'),
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -556,14 +548,14 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+            child: Text(context.tr('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
               final temp = double.tryParse(_updateTempController.text);
               if (temp == null || temp < 0) {
                 Fluttertoast.showToast(
-                  msg: '⚠️ الرجاء إدخال درجة حرارة صحيحة',
+                  msg: AppStrings.trStatic('invalid_temp_warning'),
                   backgroundColor: Colors.orange,
                   textColor: Colors.white,
                 );
@@ -574,14 +566,14 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                 final updatedFurnace = furnace.updateTemperature(temp);
                 await _provider.service.saveFurnace(_provider.currentFactoryId, updatedFurnace);
                 Fluttertoast.showToast(
-                  msg: '✅ تم تحديث الحرارة إلى $temp°C',
+                  msg: AppStrings.trStaticP('temp_updated', {'v': '$temp'}),
                   backgroundColor: Colors.green,
                   textColor: Colors.white,
                 );
                 await _reloadAfterFurnaceAction(optimistic: updatedFurnace);
               } catch (e) {
                 Fluttertoast.showToast(
-                  msg: '❌ خطأ في تحديث الحرارة: $e',
+                  msg: AppStrings.trStaticP('temp_update_failed', {'e': e.toString()}),
                   backgroundColor: Colors.red,
                   textColor: Colors.white,
                 );
@@ -591,7 +583,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
             ),
-            child: const Text('تحديث'),
+            child: Text(context.tr('update_temp_btn')),
           ),
         ],
       ),
@@ -610,11 +602,11 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
   String _getStatusText(FurnaceStatus status) {
     switch (status) {
-      case FurnaceStatus.idle: return '🟤 خامل';
-      case FurnaceStatus.heating: return '🟠 تسخين';
-      case FurnaceStatus.holding: return '🟢 تثبيت';
-      case FurnaceStatus.cooling: return '🔵 تبريد';
-      case FurnaceStatus.error: return '🔴 خطأ';
+      case FurnaceStatus.idle: return AppStrings.trStatic('idle_status');
+      case FurnaceStatus.heating: return AppStrings.trStatic('heating_status');
+      case FurnaceStatus.holding: return AppStrings.trStatic('stabilizing_status');
+      case FurnaceStatus.cooling: return AppStrings.trStatic('cooling_status');
+      case FurnaceStatus.error: return AppStrings.trStatic('error_word');
     }
   }
 
@@ -662,6 +654,21 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
   }
 
   @override
+  void dispose() {
+    _furnaceNameController.dispose();
+    _targetTempController.dispose();
+    _hollowTimeController.dispose();
+    _solidTimeController.dispose();
+    _startTempController.dispose();
+    _endTempController.dispose();
+    _maxTempController.dispose();
+    _minTempController.dispose();
+    _cycleNotesController.dispose();
+    _updateTempController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final readyCount = _diesInFurnace.where((die) {
       final furnace = _provider.getFurnaceById(die.furnaceId ?? '');
@@ -672,14 +679,14 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🔥 إدارة الأفران'),
+        title: Text(context.tr('manage_furnaces_menu')),
         backgroundColor: Colors.orange,
         elevation: 2,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadData,
-            tooltip: 'تحديث',
+            tooltip: context.tr('refresh_plain'),
           ),
         ],
       ),
@@ -695,17 +702,17 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _statItem('🟢 جاهز', '$readyCount', Colors.green),
-                        _statItem('🔴 غير جاهز', '$notReadyCount', Colors.red),
-                        _statItem('🔥 أفران', '${_furnaces.length}', Colors.orange),
+                        _statItem(context.tr('ready_stat'), '$readyCount', Colors.green),
+                        _statItem(context.tr('not_ready_stat'), '$notReadyCount', Colors.red),
+                        _statItem(context.tr('furnaces_stat'), '${_furnaces.length}', Colors.orange),
                       ],
                     ),
                   ),
                   
-                  const TabBar(
+                  TabBar(
                     tabs: [
-                      Tab(text: '🔥 الأفران', icon: Icon(Icons.fireplace)),
-                      Tab(text: '📋 القوالب في الفرن', icon: Icon(Icons.inventory)),
+                      Tab(text: context.tr('furnaces_tab'), icon: const Icon(Icons.fireplace)),
+                      Tab(text: context.tr('dies_in_furnace_tab'), icon: const Icon(Icons.inventory)),
                     ],
                   ),
                   Expanded(
@@ -732,13 +739,13 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.add, color: Colors.orange),
-                    SizedBox(width: 8),
+                    const Icon(Icons.add, color: Colors.orange),
+                    const SizedBox(width: 8),
                     Text(
-                      '➕ إضافة فرن جديد',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      context.tr('add_new_furnace'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -749,11 +756,11 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                       flex: 2,
                       child: TextFormField(
                         controller: _furnaceNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'اسم الفرن',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: context.tr('furnace_name_label'),
+                          border: const OutlineInputBorder(),
                           isDense: true,
-                          hintText: 'مثال: فرن المكبس 7 بوصة',
+                          hintText: context.tr('furnace_name_hint'),
                         ),
                       ),
                     ),
@@ -762,9 +769,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                       child: TextFormField(
                         controller: _targetTempController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: '°C المستهدفة',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: context.tr('target_temp_c_label'),
+                          border: const OutlineInputBorder(),
                           isDense: true,
                           hintText: '480',
                         ),
@@ -779,9 +786,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                       child: TextFormField(
                         controller: _hollowTimeController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: '⏱️ وقت الهولو (دقائق)',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: context.tr('hollow_time_label'),
+                          border: const OutlineInputBorder(),
                           isDense: true,
                           hintText: '210',
                         ),
@@ -792,9 +799,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                       child: TextFormField(
                         controller: _solidTimeController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: '⏱️ وقت الصوليد (دقائق)',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: context.tr('solid_time_label'),
+                          border: const OutlineInputBorder(),
                           isDense: true,
                           hintText: '120',
                         ),
@@ -806,11 +813,11 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                 DropdownButtonFormField<String>(
                   value: _selectedPressId,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: '📏 المكبس المرتبط',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('related_press_label'),
+                    border: const OutlineInputBorder(),
                     isDense: true,
-                    helperText: 'اختر المكبس الذي يخصه هذا الفرن',
+                    helperText: context.tr('related_press_helper'),
                   ),
                   items: _presses.map((press) => 
                     DropdownMenuItem(
@@ -830,7 +837,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _addFurnace,
                     icon: const Icon(Icons.add),
-                    label: const Text('إضافة فرن'),
+                    label: Text(context.tr('add_furnace_btn')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
                       foregroundColor: Colors.white,
@@ -896,11 +903,11 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                         Icon(Icons.fireplace, size: 64, color: Colors.grey.shade300),
                         const SizedBox(height: 16),
                         Text(
-                          'لا توجد أفران',
+                          context.tr('no_furnaces_msg'),
                           style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
                         ),
                         Text(
-                          'أضف فرناً جديداً من الأعلى',
+                          context.tr('no_furnaces_hint'),
                           style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                         ),
                       ],
@@ -923,8 +930,6 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                       final statusText = _getStatusText(furnace.status);
                       
                       final canManage = _canManagePress(furnace.pressId);
-                      
-                      // ✅ حالة الفرن
                       final isActive = furnace.isActive;
 
                       return Card(
@@ -951,7 +956,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  isActive ? '🟢 نشط' : '🔴 غير نشط',
+                                  isActive ? AppStrings.trStatic('active_status') : AppStrings.trStatic('inactive_status'),
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: isActive ? Colors.green : Colors.red,
@@ -988,9 +993,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('$statusText'),
-                              Text('🎯 ${furnace.targetTemperature}°C | 🌡️ ${furnace.currentTemperature}°C'),
-                              Text('⏱️ هولو: ${furnace.hollowHeatingTime}د | صوليد: ${furnace.solidHeatingTime}د'),
-                              Text('📊 القوالب: $totalDies | 🟢 جاهز: $readyDies'),
+                              Text(context.trP('furnace_temps_line', {'t': '${furnace.targetTemperature}', 'c': '${furnace.currentTemperature}'})),
+                              Text(context.trP('furnace_times_line', {'h': '${furnace.hollowHeatingTime}', 's': '${furnace.solidHeatingTime}'})),
+                              Text(context.trP('furnace_dies_line', {'d': '$totalDies', 'r': '$readyDies'})),
                               if (currentCycle != null)
                                 Text(
                                   '⏱️ ${currentCycle.durationFormatted}',
@@ -1014,31 +1019,30 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                                     ),
                                   );
                                 },
-                                tooltip: 'عرض القوالب في الفرن',
+                                tooltip: context.tr('view_dies_in_furnace_tip'),
                               ),
                               if (canManage) ...[
                                 if (furnace.status == FurnaceStatus.idle)
                                   IconButton(
                                     icon: const Icon(Icons.play_circle, color: Colors.green),
                                     onPressed: () => _showStartFurnaceDialog(furnace),
-                                    tooltip: '▶️ تشغيل الفرن',
+                                    tooltip: context.tr('start_furnace_tip'),
                                   ),
-                                // ✅ زر التحكم في الحرارة الحالية متاح دايماً، مش بس وقت التسخين
                                 IconButton(
                                   icon: const Icon(Icons.thermostat, color: Colors.orange),
                                   onPressed: () => _showUpdateTemperatureDialog(furnace),
-                                  tooltip: '🌡️ تحديث الحرارة الحالية',
+                                  tooltip: context.tr('update_current_temp_tip'),
                                 ),
                                 if (furnace.status == FurnaceStatus.heating || furnace.status == FurnaceStatus.holding)
                                   IconButton(
                                     icon: const Icon(Icons.stop_circle, color: Colors.red),
                                     onPressed: () => _showStopFurnaceDialog(furnace),
-                                    tooltip: '⏹️ إيقاف الفرن',
+                                    tooltip: context.trP('stop_furnace_dialog', {'name': furnace.name}),
                                   ),
                                 IconButton(
                                   icon: const Icon(Icons.delete, color: Colors.red),
                                   onPressed: () => _deleteFurnace(furnace),
-                                  tooltip: 'حذف',
+                                  tooltip: context.tr('delete_word'),
                                 ),
                               ],
                             ],
@@ -1049,22 +1053,22 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _infoRow('📏 المكبس', furnace.pressName),
-                                  _infoRow('🎯 الحرارة المستهدفة', '${furnace.targetTemperature}°C'),
-                                  _infoRow('🌡️ الحرارة الحالية', '${furnace.currentTemperature}°C'),
-                                  _infoRow('⏱️ وقت الهولو', '${furnace.hollowHeatingTime} دقيقة'),
-                                  _infoRow('⏱️ وقت الصوليد', '${furnace.solidHeatingTime} دقيقة'),
-                                  _infoRow('📊 القوالب في الفرن', '$totalDies قالب'),
-                                  _infoRow('🟢 الجاهزة للكبس', '$readyDies قالب'),
-                                  _infoRow('📅 تاريخ الإنشاء', DateFormat('yyyy-MM-dd HH:mm').format(furnace.createdAt)),
-                                  _infoRow('📊 الحالة', _getStatusText(furnace.status)),
-                                  _infoRow('📋 حالة التشغيل', isActive ? '🟢 نشط' : '🔴 غير نشط'),
+                                  _infoRow(context.tr('details_press'), furnace.pressName),
+                                  _infoRow(context.tr('details_target'), '${furnace.targetTemperature}°C'),
+                                  _infoRow(context.tr('details_current'), '${furnace.currentTemperature}°C'),
+                                  _infoRow(context.tr('details_hollow'), '${furnace.hollowHeatingTime} ${context.tr('minute_unit')}'),
+                                  _infoRow(context.tr('details_solid'), '${furnace.solidHeatingTime} ${context.tr('minute_unit')}'),
+                                  _infoRow(context.tr('details_dies_count'), AppStrings.trStaticP('cage_count_badge', {'n': '$totalDies'})),
+                                  _infoRow(context.tr('details_ready_count'), AppStrings.trStaticP('cage_count_badge', {'n': '$readyDies'})),
+                                  _infoRow(context.tr('details_created'), DateFormat('yyyy-MM-dd HH:mm').format(furnace.createdAt)),
+                                  _infoRow(context.tr('details_status'), _getStatusText(furnace.status)),
+                                  _infoRow(context.tr('details_active'), isActive ? AppStrings.trStatic('active_status') : AppStrings.trStatic('inactive_status')),
                                   
                                   if (totalDies > 0) ...[
                                     const Divider(),
-                                    const Text(
-                                      '📋 القوالب في هذا الفرن:',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    Text(
+                                      context.tr('dies_in_this_furnace'),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                     ),
                                     const SizedBox(height: 4),
                                     ...furnaceDies.map((die) {
@@ -1088,32 +1092,32 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                                           children: [
                                             Text(
                                               isReady 
-                                                  ? '✅ جاهز للكبس' 
+                                                  ? context.tr('ready_for_pressing_short') 
                                                   : '⏳ ${die.getRemainingTimeFormatted(furnace)}',
                                               style: const TextStyle(fontSize: 10),
                                             ),
                                             if (die.furnaceEntryTime != null)
                                               Text(
-                                                '📥 دخول: ${DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceEntryTime!)}',
+                                                context.trP('entry_at', {'v': DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceEntryTime!)}),
                                                 style: const TextStyle(fontSize: 9, color: Colors.blue),
                                               ),
                                             if (die.furnaceExitTime != null)
                                               Text(
-                                                '📤 خروج: ${DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceExitTime!)}',
+                                                context.trP('exit_at', {'v': DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceExitTime!)}),
                                                 style: const TextStyle(fontSize: 9, color: Colors.green),
                                               ),
                                             Text(
-                                              '⏱️ المطلوب: ${die.getRequiredHeatingTime(furnace)} دقيقة',
+                                              context.trP('required_heating_at', {'v': '${die.getRequiredHeatingTime(furnace)}'}),
                                               style: const TextStyle(fontSize: 9, color: Colors.grey),
                                             ),
                                             Text(
-                                              '📐 الأبعاد: ${die.dimensionsFormatted}',
+                                              context.trP('dims_at', {'v': die.dimensionsFormatted}),
                                               style: const TextStyle(fontSize: 9, color: Colors.purple),
                                             ),
                                           ],
                                         ),
                                         trailing: Text(
-                                          '${die.dieType == "hollow" ? "هولو" : "صوليد"}',
+                                          '${die.dieType == "hollow" ? AppStrings.trStatic('hollow_word') : AppStrings.trStatic('solid_word')}',
                                           style: const TextStyle(fontSize: 10, color: Colors.grey),
                                         ),
                                       );
@@ -1122,9 +1126,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                                   
                                   if (furnace.cycles.isNotEmpty) ...[
                                     const Divider(),
-                                    const Text(
-                                      '📋 دورات التسخين السابقة',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    Text(
+                                      context.tr('previous_cycles'),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                     ),
                                     const SizedBox(height: 4),
                                     ...furnace.cycles.reversed.map((cycle) {
@@ -1142,7 +1146,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                                             style: const TextStyle(fontSize: 12),
                                           ),
                                           subtitle: Text(
-                                            '🎯 ${cycle.targetTemperature}°C | ⏱️ ${cycle.durationFormatted} | 📦 ${cycle.dieIds.length} قالب',
+                                            context.trP('cycle_summary_ext', {'t': '${cycle.targetTemperature}', 'd': cycle.durationFormatted, 'n': '${cycle.dieIds.length}'}),
                                             style: const TextStyle(fontSize: 10),
                                           ),
                                         ),
@@ -1175,9 +1179,9 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '📋 جميع القوالب في الأفران',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    Text(
+                      context.tr('all_dies_in_furnaces'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1186,7 +1190,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '${_diesInFurnace.length} قالب',
+                        AppStrings.trStaticP('cage_count_badge', {'n': '${_diesInFurnace.length}'}),
                         style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
                       ),
                     ),
@@ -1202,12 +1206,12 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                               Icon(Icons.inventory, size: 64, color: Colors.grey.shade300),
                               const SizedBox(height: 16),
                               Text(
-                                'لا توجد قوالب في الفرن',
+                                context.tr('no_dies_in_furnace'),
                                 style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'أضف قالباً جديداً من شاشة الفرن',
+                                context.tr('add_die_from_furnace_hint'),
                                 style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                               ),
                             ],
@@ -1219,7 +1223,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                             final die = _diesInFurnace[index];
                             final furnace = _provider.getFurnaceById(die.furnaceId ?? '');
                             final isReady = furnace != null ? die.isReady(furnace) : false;
-                            final remaining = furnace != null ? die.getRemainingTimeFormatted(furnace) : 'غير معروف';
+                            final remaining = furnace != null ? die.getRemainingTimeFormatted(furnace) : AppStrings.trStatic('unknown_word');
                             final press = _provider.getPressById(die.pressId);
                             final elapsedMinutes = die.furnaceEntryTime != null
                                 ? DateTime.now().difference(die.furnaceEntryTime!).inMinutes
@@ -1258,27 +1262,27 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                                     children: [
                                       Text('📏 ${press?.name ?? die.pressId}'),
                                       Text('🔥 ${furnace?.name ?? die.furnaceId}'),
-                                      Text('🔧 ${die.dieType == "hollow" ? "هولو" : "صوليد"}'),
-                                      Text('📐 الأبعاد: ${die.dimensionsFormatted}'),
-                                      Text('⏱️ وقت التسخين: ${furnace != null ? die.getRequiredHeatingTime(furnace) : "غير معروف"} دقيقة'),
-                                      Text('⏳ مضى: $elapsedHours ساعة'),
+                                      Text('🔧 ${die.dieType == "hollow" ? AppStrings.trStatic('hollow_word') : AppStrings.trStatic('solid_word')}'),
+                                      Text(context.trP('dims_at', {'v': die.dimensionsFormatted})),
+                                      Text(context.trP('heating_time_line', {'v': furnace != null ? '${die.getRequiredHeatingTime(furnace)}' : AppStrings.trStatic('unknown_word')})),
+                                      Text(context.trP('elapsed_hours_at', {'v': '$elapsedHours'})),
                                       
                                       if (die.furnaceEntryTime != null)
                                         Text(
-                                          '📥 دخول: ${DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceEntryTime!)}',
+                                          context.trP('entry_at', {'v': DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceEntryTime!)}),
                                           style: const TextStyle(fontSize: 10, color: Colors.blue),
                                         ),
                                       
                                       if (die.furnaceExitTime != null)
                                         Text(
-                                          '📤 خروج: ${DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceExitTime!)}',
+                                          context.trP('exit_at', {'v': DateFormat('yyyy-MM-dd HH:mm').format(die.furnaceExitTime!)}),
                                           style: const TextStyle(fontSize: 10, color: Colors.green),
                                         ),
                                       
                                       Text(
                                         isReady 
-                                            ? '✅ جاهز للكبس' 
-                                            : '⏳ متبقي: $remaining',
+                                            ? context.tr('ready_for_pressing_short') 
+                                            : context.trP('remaining_label', {'v': remaining}),
                                         style: TextStyle(
                                           color: isReady ? Colors.green : Colors.orange,
                                           fontWeight: FontWeight.bold,
@@ -1299,7 +1303,7 @@ class _FurnaceScreenState extends State<FurnaceScreen> {
                                       );
                                     },
                                     icon: const Icon(Icons.visibility, size: 14),
-                                    label: const Text('عرض', style: TextStyle(fontSize: 10)),
+                                    label: Text(context.tr('view_btn'), style: const TextStyle(fontSize: 10)),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.blue,
                                       foregroundColor: Colors.white,

@@ -4,7 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
 import 'services.dart';
 import 'die_correction_screens.dart';
-import 'solution_shipments_screens.dart';
+import 'solution_shipments_screens.dart'; 
 
 String _s(dynamic v, [String fallback = '']) => v?.toString() ?? fallback;
 int _i(dynamic v, [int fallback = 0]) => v is int ? v : int.tryParse(v?.toString() ?? '') ?? fallback;
@@ -61,13 +61,89 @@ class _PackagingOrdersHomeScreenState extends State<PackagingOrdersHomeScreen> {
 
 class PackagingOrderDetailV2Screen extends StatefulWidget { final String orderId; final String customerName; final String orderNumber; const PackagingOrderDetailV2Screen({super.key, required this.orderId, required this.customerName, this.orderNumber = ''}); @override State<PackagingOrderDetailV2Screen> createState() => _PackagingOrderDetailV2ScreenState(); }
 class _PackagingOrderDetailV2ScreenState extends State<PackagingOrderDetailV2Screen> {
-  late final String _factoryId; @override void initState() { super.initState(); _factoryId = Provider.of<ShiftProvider>(context, listen: false).currentFactoryId; }
+  late final String _factoryId; 
+  @override void initState() { super.initState(); _factoryId = Provider.of<ShiftProvider>(context, listen: false).currentFactoryId; }
   DatabaseReference get _packagesRef => FirebaseDatabase.instance.ref('factories/$_factoryId/packagingPackagesV2');
   DatabaseReference get _itemsRef => FirebaseDatabase.instance.ref('factories/$_factoryId/packagingItemsV2');
-  @override Widget build(BuildContext context) { return Scaffold(appBar: AppBar(title: Text('📦 ${widget.customerName}')), floatingActionButton: FloatingActionButton.extended(onPressed: () async { await showDialog(context: context, builder: (_) => SelectSolutionPackageDialog(orderId: widget.orderId)); }, icon: const Icon(Icons.add), label: const Text('طرد من شحنة صلادة')), body: StreamBuilder<DatabaseEvent>(stream: _packagesRef.onValue, builder: (context, snap) { final val = snap.data?.snapshot.value; final packages = <PackagingPackageV2>[]; if (val is Map) val.forEach((k, v) { if (v is Map && _s(v['orderId']) == widget.orderId) packages.add(PackagingPackageV2.fromJson(k.toString(), v)); }); packages.sort((a, b) => b.createdAt.compareTo(a.createdAt)); return ListView.builder(padding: const EdgeInsets.all(12), itemCount: packages.length, itemBuilder: (context, i) { final p = packages[i]; return Card(child: ExpansionTile(leading: const Icon(Icons.inventory), title: Text('طرد ${p.id.substring(0, p.id.length > 6 ? 6 : p.id.length)} • ${p.status}'), subtitle: Text(p.createdAt.toString()), children: [StreamBuilder<DatabaseEvent>(stream: _itemsRef.onValue, builder: (context, isnap) { final ival = isnap.data?.snapshot.value; final items = <PackagingItemV2>[]; if (ival is Map) ival.forEach((k, v) { if (v is Map && _s(v['packageId']) == p.id) items.add(PackagingItemV2.fromJson(k.toString(), v)); }); final bars = items.fold<int>(0, (s, e) => s + e.barCount); final weight = items.fold<double>(0, (s, e) => s + e.totalWeightKg); return Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('إجمالي الطرد: $bars عود • ${weight.toStringAsFixed(3)} كجم', style: const TextStyle(fontWeight: FontWeight.bold)), ...items.map((e) => ListTile(dense: true, title: Text('${e.profileCode} ${e.lengthM}م ${e.solutionType}'), subtitle: Text('${e.barCount} عود • ${e.totalWeightKg.toStringAsFixed(3)} كجم • قفص ${e.cageId}')))])); })])); }); }); }
+
+  Future<void> _startPackingCage(SolutionCageModel cage) async {
+    final packageRef = _packagesRef.push();
+    final packageId = packageRef.key ?? '';
+    
+    final Map<String, dynamic> updates = {};
+    updates['factories/$_factoryId/packagingPackagesV2/$packageId'] = PackagingPackageV2(
+      id: packageId, orderId: widget.orderId, factoryId: _factoryId, createdBy: FirebaseAuth.instance.currentUser?.email ?? ''
+    ).toJson();
+
+    for (var sector in cage.sectors) {
+      for (var group in sector.groups) {
+        final itemRef = _itemsRef.push();
+        final itemId = itemRef.key ?? '';
+        updates['factories/$_factoryId/packagingItemsV2/$itemId'] = PackagingItemV2(
+          id: itemId, packageId: packageId, orderId: widget.orderId, factoryId: _factoryId, shipmentId: cage.shipmentId, cageId: cage.id, sectorIndex: 0, groupIndex: 0,
+          profileCode: sector.profileCode, designCode: sector.designCode, clientCode: sector.clientCode, dieName: sector.dieName, lengthM: group.lengthM, metricWeightKgPerM: group.metricWeightKgPerM, barCount: group.barCount, solutionType: group.solutionType
+        ).toJson();
+      }
+    }
+    updates['factories/$_factoryId/solutionCages/${cage.id}/status'] = 'packed';
+    await FirebaseDatabase.instance.ref().update(updates);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ تم بدء تغليف القفص')));
+  }
+
+  @override Widget build(BuildContext context) { return Scaffold(appBar: AppBar(title: Text('📦 ${widget.customerName}')), floatingActionButton: FloatingActionButton.extended(onPressed: () async { await showDialog(context: context, builder: (_) => SelectSolutionPackageDialog(orderId: widget.orderId)); }, icon: const Icon(Icons.add), label: const Text('طرد من شحنة صلادة')), body: Column(children: [
+    Expanded(
+      child: StreamBuilder<DatabaseEvent>(
+        stream: FirebaseDatabase.instance.ref('factories/$_factoryId/solutionCages').onValue, 
+        builder: (context, cageSnap) {
+          if (!cageSnap.hasData) return const Center(child: CircularProgressIndicator());
+          final cageVal = cageSnap.data!.snapshot.value;
+          final allCages = <SolutionCageModel>[];
+          if (cageVal is Map) {
+            cageVal.forEach((k, v) { if (v is Map) { final c = SolutionCageModel.fromJson(k.toString(), v); if (c.shipmentId.isNotEmpty) allCages.add(c); } });
+          }
+          return ListView(padding: const EdgeInsets.all(12), children: [
+            const Text('📦 أقفاص الشحنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (allCages.isEmpty) const Center(child: Text('لا توجد أقفاص في هذه الشحنة')),
+            ...allCages.map((cage) => Card(child: ExpansionTile(leading: const Icon(Icons.inventory, color: Colors.blue), title: Text('قفص ${cage.cageNumber}'), subtitle: Text('${cage.totalBars} عود • ${cage.totalWeightKg.toStringAsFixed(3)} كجم'), children: [
+              ...cage.sectors.map((sector) => ListTile(title: Text(sector.dieName.isNotEmpty ? sector.dieName : sector.profileCode), subtitle: Text('${sector.totalBars} عود • ${sector.totalWeightKg.toStringAsFixed(3)} كجم'))),
+              Padding(padding: const EdgeInsets.all(8.0), child: ElevatedButton.icon(onPressed: () => _startPackingCage(cage), icon: const Icon(Icons.check), label: const Text('بدء التغليف'))),
+            ]))),
+          ]);
+        }
+      ),
+    ),
+    Expanded(
+      child: StreamBuilder<DatabaseEvent>(
+        stream: _packagesRef.onValue, 
+        builder: (context, snap) { 
+          final val = snap.data?.snapshot.value; 
+          final packages = <PackagingPackageV2>[]; 
+          if (val is Map) { val.forEach((k, v) { if (v is Map && _s(v['orderId']) == widget.orderId) packages.add(PackagingPackageV2.fromJson(k.toString(), v)); }); }
+          packages.sort((a, b) => b.createdAt.compareTo(a.createdAt)); 
+          return ListView.builder(padding: const EdgeInsets.all(12), itemCount: packages.length, itemBuilder: (context, i) { 
+            final p = packages[i]; 
+            return Card(child: ExpansionTile(leading: const Icon(Icons.local_shipping), title: Text('طرد ${p.id.substring(0, p.id.length > 6 ? 6 : p.id.length)} - ${p.status}'), subtitle: Text(p.createdAt.toString()), children: [
+              StreamBuilder<DatabaseEvent>(stream: _itemsRef.onValue, builder: (context, isnap) { 
+                final ival = isnap.data?.snapshot.value; 
+                final items = <PackagingItemV2>[]; 
+                if (ival is Map) { ival.forEach((k, v) { if (v is Map && _s(v['packageId']) == p.id) items.add(PackagingItemV2.fromJson(k.toString(), v)); }); }
+                final bars = items.fold<int>(0, (s, e) => s + e.barCount); 
+                final weight = items.fold<double>(0, (s, e) => s + e.totalWeightKg); 
+                return Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('إجمالي الطرد: $bars عود - ${weight.toStringAsFixed(3)} كجم', style: const TextStyle(fontWeight: FontWeight.bold)), 
+                  ...items.map((e) => ListTile(dense: true, title: Text('${e.profileCode} ${e.lengthM}م ${e.solutionType}'), subtitle: Text('${e.barCount} عود - ${e.totalWeightKg.toStringAsFixed(3)} كجم - قفص ${e.cageId}')))
+                ])); 
+              })
+            ])); 
+          }); 
+        }
+      ),
+    ),
+  ])); }
 }
 
-class _SourceRow { final SolutionCageModel cage; final int sectorIndex; final SolutionCageSectorModel sector; final int groupIndex; final SolutionBarGroupModel group; final TextEditingController qty = TextEditingController(); _SourceRow(this.cage, this.sectorIndex, this.sector, this.groupIndex, this.group); String get label => 'قفص ${cage.cageNumber} • ${sector.dieName.isNotEmpty ? sector.dieName : sector.profileCode} • ${group.lengthM}م • ${group.solutionType} • متاح ${group.availableBarCount}'; }
+class _SourceRow { final SolutionCageModel cage; final int sectorIndex; final SolutionCageSectorModel sector; final int groupIndex; final SolutionBarGroupModel group; final TextEditingController qty = TextEditingController(); _SourceRow(this.cage, this.sectorIndex, this.sector, this.groupIndex, this.group); String get label => 'قفص ${cage.cageNumber} - ${sector.dieName.isNotEmpty ? sector.dieName : sector.profileCode} - ${group.lengthM}م - ${group.solutionType} - متاح ${group.availableBarCount}'; }
 
 class SelectSolutionPackageDialog extends StatefulWidget { final String orderId; const SelectSolutionPackageDialog({super.key, required this.orderId}); @override State<SelectSolutionPackageDialog> createState() => _SelectSolutionPackageDialogState(); }
 class _SelectSolutionPackageDialogState extends State<SelectSolutionPackageDialog> {

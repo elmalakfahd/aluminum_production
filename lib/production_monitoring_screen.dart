@@ -6,13 +6,11 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import 'models.dart';
 import 'services.dart';
-import 'planning_screen.dart';
+import 'planning_screen.dart'; 
 import 'app_localization.dart';
 import 'shift_detail_screen.dart';
 import 'all_shifts_screen.dart';
 
-
-// سجل تقطيع/إنتاج القالب من شاشة المراقبة
 class CuttingRecordModel {
   final String id;
   final String factoryId;
@@ -61,9 +59,6 @@ class CuttingRecordModel {
   Map<String, dynamic> toJson() => {'factoryId': factoryId, 'shiftId': shiftId, 'dieId': dieId, 'dieName': dieName, 'pressName': pressName, 'billetCount': billetCount, 'metricWeightKgPerM': metricWeightKgPerM, 'barLengthM': barLengthM, 'barWeightKg': barWeightKg, 'goodBarCount': goodBarCount, 'pendingBarCount': pendingBarCount, 'pendingReason': pendingReason, 'scrapBarCount': scrapBarCount, 'goodWeightKg': goodWeightKg, 'pendingWeightKg': pendingWeightKg, 'scrapWeightKg': scrapWeightKg, 'recordedBy': recordedBy, 'createdAt': createdAt.toIso8601String()};
 }
 
-// ============================================================
-// 📊 شاشة مراقبة الإنتاج والخردة - عرض بيانات الإنتاج فقط
-// ============================================================
 class ProductionMonitoringScreen extends StatefulWidget {
   final String? initialFilter;
 
@@ -270,11 +265,11 @@ class _ProductionMonitoringScreenState extends State<ProductionMonitoringScreen>
       ),
       child: Row(
         children: [
-          Container(
-            constraints: const BoxConstraints(maxWidth: 160),
+          // ✅ إصلاح Overflow بحاوية مرنة
+          Expanded(
             child: DropdownButtonFormField<String>(
               value: _filterStatus,
-              isDense: true,
+              isExpanded: true, // ✅ يمنع Overflow
               decoration: InputDecoration(
                 labelText: context.tr('shift_status'),
                 border: const OutlineInputBorder(),
@@ -293,33 +288,30 @@ class _ProductionMonitoringScreenState extends State<ProductionMonitoringScreen>
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 200),
-              child: DropdownButtonFormField<String>(
-                value: _selectedPressId,
+            child: DropdownButtonFormField<String>(
+              value: _selectedPressId,
+              isExpanded: true, // ✅ يمنع Overflow
+              decoration: InputDecoration(
+                labelText: context.tr('press_label_short'),
+                border: const OutlineInputBorder(),
                 isDense: true,
-                decoration: InputDecoration(
-                  labelText: context.tr('press_label_short'),
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('جميع المكابس'),
-                  ),
-                  ...provider.presses.map((press) =>
-                    DropdownMenuItem(
-                      value: press.id,
-                      child: Text(press.name),
-                    )
-                  ),
-                ],
-                onChanged: (value) {
-                  setState(() => _selectedPressId = value);
-                },
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
+              items: [
+                const DropdownMenuItem(
+                  value: null,
+                  child: Text('جميع المكابس'),
+                ),
+                ...provider.presses.map((press) =>
+                  DropdownMenuItem(
+                    value: press.id,
+                    child: Text(press.name, overflow: TextOverflow.ellipsis),
+                  )
+                ),
+              ],
+              onChanged: (value) {
+                setState(() => _selectedPressId = value);
+              },
             ),
           ),
         ],
@@ -658,7 +650,6 @@ class _ProductionMonitoringScreenState extends State<ProductionMonitoringScreen>
             
             const SizedBox(height: 6),
             
-            // عرض القوالب مع بيانات الإنتاج فقط
             if (dies.isNotEmpty) ...[
               const Text(
                 '📋 القوالب:',
@@ -715,7 +706,6 @@ class _ProductionMonitoringScreenState extends State<ProductionMonitoringScreen>
     );
   }
 
-  // ✅ عرض بيانات الإنتاج فقط (الأعواد، الخردة، النسب)
   Widget _buildDieSummary(BuildContext context, ShiftProvider provider, ShiftModel shift, DieModel die) {
     final hasData = die.hasProductionData;
     final pctColor = _getScrapColor(die.scrapPercentage);
@@ -768,7 +758,6 @@ class _ProductionMonitoringScreenState extends State<ProductionMonitoringScreen>
       ),
     );
   }
-
 
   Future<void> _showCuttingEntry(BuildContext context, ShiftProvider provider, ShiftModel shift, DieModel die) async {
     final metric = TextEditingController();
@@ -869,7 +858,6 @@ class _ProductionMonitoringScreenState extends State<ProductionMonitoringScreen>
     );
   }
 
-  // ✅ بطاقة القالب مع بيانات الإنتاج فقط
   Widget _buildDieCard(BuildContext context, ShiftProvider provider, ShiftModel shift, DieModel die, {bool highlight = false}) {
     final hasData = die.hasProductionData;
     final pctColor = _getScrapColor(die.scrapPercentage);

@@ -26,7 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    // ✅ التحقق من تحميل الصورة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkImage();
     });
@@ -34,9 +33,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _checkImage() {
     try {
-      // ✅ محاولة تحميل الصورة للتأكد من وجودها
       final image = AssetImage('assets/images/logo_delmar.png');
-      image.resolve(ImageConfiguration()).addListener(
+      image.resolve(const ImageConfiguration()).addListener(
         ImageStreamListener(
           (info, sync) {
             if (mounted) setState(() => _imageLoaded = true);
@@ -75,6 +73,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final userData = await service.getCurrentUserData();
 
+      // ✅ فحص mounted قبل عرض أي رسالة
+      if (!mounted) return;
+
       if (userData != null && userData.isDeveloper) {
         Fluttertoast.showToast(
           msg: context.tr('welcome_developer'),
@@ -89,6 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
         textColor: Colors.white,
       );
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       String message = context.tr('login_error');
       if (e.code == 'user-not-found') {
         message = context.tr('user_not_found');
@@ -108,6 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
         toastLength: Toast.LENGTH_LONG,
       );
     } catch (e) {
+      if (!mounted) return;
       String message = e.toString();
       if (message.contains('غير مفعل')) {
         message = context.tr('account_not_activated');
@@ -135,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -155,7 +158,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // ✅ شعار الشركة
                       Container(
                         width: 130,
                         height: 130,
@@ -185,7 +187,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // ✅ اسم الشركة
                       Text(
                         'مجموعة دلمار الصناعية',
                         style: TextStyle(
@@ -196,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Shadow(
                               color: Colors.black.withOpacity(0.5),
                               blurRadius: 10,
-                              offset: Offset(0, 2),
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
@@ -225,7 +226,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // ✅ العنوان
                       Text(
                         context.tr('app_title'),
                         style: TextStyle(
@@ -244,7 +244,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // ✅ حقل البريد الإلكتروني
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
@@ -256,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          style: TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             labelText: context.tr('email_label'),
                             labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
@@ -269,7 +268,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // ✅ حقل كلمة المرور
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
@@ -281,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
-                          style: TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             labelText: context.tr('password_label'),
                             labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
@@ -302,7 +300,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // ✅ زر تسجيل الدخول
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -336,7 +333,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // ✅ زر "نسيت كلمة المرور"
                       TextButton(
                         onPressed: () {
                           _showForgotPasswordDialog();
@@ -351,7 +347,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // ✅ حقوق النشر
                       Text(
                         context.tr('copyright'),
                         style: TextStyle(
@@ -364,8 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              // ✅ زر تبديل اللغة أعلى الشاشة
-              Positioned(
+              const Positioned(
                 top: 8,
                 right: 8,
                 child: LanguageToggleButton(
@@ -379,10 +373,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ✅ شعار احتياطي في حال عدم وجود الصورة
   Widget _buildFallbackLogo() {
     return Container(
-      color: Color(0xFF1A2A4A),
+      color: const Color(0xFF1A2A4A),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -407,7 +400,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ✅ دالة نسيت كلمة المرور
   void _showForgotPasswordDialog() {
     final TextEditingController emailController = TextEditingController();
 
@@ -454,6 +446,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 await FirebaseAuth.instance.sendPasswordResetEmail(
                   email: emailController.text.trim(),
                 );
+                // ✅ فحص mounted قبل عرض الرسالة
+                if (!mounted) return;
                 Fluttertoast.showToast(
                   msg: context.tr('reset_link_sent'),
                   backgroundColor: Colors.green,
@@ -461,6 +455,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   toastLength: Toast.LENGTH_LONG,
                 );
               } on FirebaseAuthException catch (e) {
+                if (!mounted) return;
                 String message = context.tr('error_generic');
                 if (e.code == 'user-not-found') {
                   message = context.tr('user_not_found');
@@ -473,6 +468,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   textColor: Colors.white,
                 );
               } catch (e) {
+                if (!mounted) return;
                 Fluttertoast.showToast(
                   msg: '${context.tr('error_generic')}: $e',
                   backgroundColor: Colors.red,
