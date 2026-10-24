@@ -1,10 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
 import 'services.dart';
 import 'die_correction_screens.dart';
+import 'die_template_model.dart'; // ✅ تم إضافة هذا السطر لحل المشكلة
 
 String _s(dynamic v, [String fallback = '']) => v?.toString() ?? fallback;
 int _i(dynamic v, [int fallback = 0]) => v is int ? v : int.tryParse(v?.toString() ?? '') ?? fallback;
